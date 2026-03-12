@@ -14,16 +14,15 @@ class Settings(BaseSettings):
     whitelisted_wallet_private_key: str
     agent_wallet_address: str
     entity_id: int
-
-    # Database (Supabase)
-    database_url: str = ""
+    acp_network: str = "testnet"
 
     # Terminal API
     terminal_api_url: str = ""
 
-    # API Keys
-    coinmarketcap_api_key: str = ""
-    anthropic_api_key: str = ""
+    # LLM (OpenAI-compatible — works with OpenRouter, Together, Groq, etc.)
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_api_key: str = ""
+    llm_model: str = "gpt-4o-mini"
 
     # Monitoring config
     log_level: str = "INFO"
@@ -31,6 +30,8 @@ class Settings(BaseSettings):
     stale_data_threshold_seconds: int = 300
     max_swap_retries: int = 3
     data_refresh_interval_seconds: int = 60
+    idempotency_db_path: str = ".state/idempotency.db"
+    job_lock_ttl_seconds: int = 300
 
 
 def setup_logging(level: str = "INFO") -> None:

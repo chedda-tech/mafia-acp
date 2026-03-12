@@ -1,7 +1,9 @@
-"""AI-powered market narrative generation using Claude API.
+"""AI-powered market narrative generation using an OpenAI-compatible API.
 
 Generates the Consigliere's market analysis — strategic, data-driven,
 trader-focused language. Never hypes, always cites data.
+
+Works with any OpenAI-compatible provider (OpenRouter, Together, Groq, etc.).
 """
 
 from __future__ import annotations
@@ -10,7 +12,7 @@ import json
 import logging
 from typing import Any
 
-import anthropic
+import openai
 
 from src.data.models import MarketDataCache, MarketOutlook, Signal
 
@@ -33,14 +35,17 @@ Return ONLY valid JSON:
 async def generate_narrative(
     data: MarketDataCache,
     signals: list[Signal],
+    *,
+    base_url: str,
     api_key: str,
+    model: str,
 ) -> dict[str, Any]:
     """Generate AI market narrative from structured data.
 
-    Falls back to a data-only response if the Claude API call fails.
+    Falls back to a data-only response if the LLM API call fails.
     """
     if not api_key:
-        logger.warning("No Anthropic API key — returning data-only analysis")
+        logger.warning("No LLM API key — returning data-only analysis")
         return _fallback_analysis(data, signals)
 
     market_context = {
@@ -60,20 +65,21 @@ async def generate_narrative(
     }
 
     try:
-        client = anthropic.AsyncAnthropic(api_key=api_key)
-        response = await client.messages.create(
-            model="claude-sonnet-4-20250514",
+        client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
+        response = await client.chat.completions.create(
+            model=model,
             max_tokens=300,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"{NARRATOR_PROMPT}\n\nMarket Data:\n"
-                    f"{json.dumps(market_context, indent=2)}"
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"{NARRATOR_PROMPT}\n\nMarket Data:\n{json.dumps(market_context, indent=2)}"
+                    ),
+                }
+            ],
         )
 
-        result = json.loads(response.content[0].text)
+        result = json.loads(response.choices[0].message.content)
         # Validate outlook is a valid enum value
         outlook = result.get("outlook", "neutral")
         valid_outlooks = [o.value for o in MarketOutlook]
@@ -87,16 +93,14 @@ async def generate_narrative(
         }
 
     except Exception as e:
-        logger.error("Claude API narrative generation failed: %s", e)
+        logger.error("LLM narrative generation failed: %s", e)
         return _fallback_analysis(data, signals)
 
 
 def _fallback_analysis(data: MarketDataCache, signals: list[Signal]) -> dict[str, Any]:
-    """Generate a basic analysis without AI when Claude is unavailable."""
-    # Determine outlook from signals
+    """Generate a basic analysis without AI when the LLM is unavailable."""
     outlook = _determine_outlook(data, signals)
 
-    # Build a basic summary from data
     parts = [f"F&G at {data.fg_value} ({data.fg_classification})."]
 
     if data.fg_change_24h != 0:

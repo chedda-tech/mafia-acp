@@ -27,66 +27,77 @@ def detect_signals(data: MarketDataCache) -> list[Signal]:
         avg_volume_change = _avg_volume_change(data)
         if avg_volume_change > 20:
             strength = _volume_strength(avg_volume_change)
-            signals.append(Signal(
-                signal=SignalType.FEAR_CAPITULATION.value,
-                strength=strength,
-                description=f"F&G at {data.fg_value} with volume up {avg_volume_change:.0f}% — "
-                "historically a bottom signal",
-            ))
+            signals.append(
+                Signal(
+                    signal=SignalType.FEAR_CAPITULATION.value,
+                    strength=strength,
+                    description=f"F&G at {data.fg_value} with volume up {avg_volume_change:.0f}% — "
+                    "historically a bottom signal",
+                )
+            )
 
     # Greed exhaustion: F&G > 75 + declining momentum
     if data.fg_value > 75:
         if data.fg_change_24h < 0:
             strength = _fg_magnitude_strength(abs(data.fg_change_24h))
-            signals.append(Signal(
-                signal=SignalType.GREED_EXHAUSTION.value,
-                strength=strength,
-                description=(
-                    f"F&G at {data.fg_value}, declining "
-                    f"{abs(data.fg_change_24h):.0f} pts — exhaustion signal"
-                ),
-            ))
+            signals.append(
+                Signal(
+                    signal=SignalType.GREED_EXHAUSTION.value,
+                    strength=strength,
+                    description=(
+                        f"F&G at {data.fg_value}, declining "
+                        f"{abs(data.fg_change_24h):.0f} pts — exhaustion signal"
+                    ),
+                )
+            )
 
     # BTC dominance shifts (>1% change in 24h = significant)
     if data.btc_dominance_change_24h > 0.5:
         strength = _dominance_strength(data.btc_dominance_change_24h)
-        signals.append(Signal(
-            signal=SignalType.BTC_DOMINANCE_RISING.value,
-            strength=strength,
-            description=f"BTC dominance up {data.btc_dominance_change_24h:.1f}% in 24h — "
-            "risk-off rotation, alts likely to underperform",
-        ))
+        signals.append(
+            Signal(
+                signal=SignalType.BTC_DOMINANCE_RISING.value,
+                strength=strength,
+                description=f"BTC dominance up {data.btc_dominance_change_24h:.1f}% in 24h — "
+                "risk-off rotation, alts likely to underperform",
+            )
+        )
 
     if data.btc_dominance_change_24h < -0.5:
         strength = _dominance_strength(abs(data.btc_dominance_change_24h))
-        signals.append(Signal(
-            signal=SignalType.BTC_DOMINANCE_FALLING.value,
-            strength=strength,
-            description=f"BTC dominance down {abs(data.btc_dominance_change_24h):.1f}% in 24h — "
-            "risk-on rotation, alt season signal",
-        ))
+        signals.append(
+            Signal(
+                signal=SignalType.BTC_DOMINANCE_FALLING.value,
+                strength=strength,
+                description=f"BTC dominance down {abs(data.btc_dominance_change_24h):.1f}% in 24h — "
+                "risk-on rotation, alt season signal",
+            )
+        )
 
     # Volume spike: avg volume change > 40%
     avg_vol = _avg_volume_change(data)
     if avg_vol > 40:
         strength = _volume_strength(avg_vol)
-        signals.append(Signal(
-            signal=SignalType.VOLUME_SPIKE.value,
-            strength=strength,
-            description=f"24h volume up {avg_vol:.0f}% — suggests forced selling or FOMO buying",
-        ))
+        signals.append(
+            Signal(
+                signal=SignalType.VOLUME_SPIKE.value,
+                strength=strength,
+                description=f"24h volume up {avg_vol:.0f}% — suggests forced selling or FOMO buying",
+            )
+        )
 
     # Volume dry-up: avg volume change < -30%
     if avg_vol < -30:
         strength = _volume_strength(abs(avg_vol))
-        signals.append(Signal(
-            signal=SignalType.VOLUME_DRY_UP.value,
-            strength=strength,
-            description=(
-                f"24h volume down {abs(avg_vol):.0f}% — "
-                "low conviction, potential range-bound"
-            ),
-        ))
+        signals.append(
+            Signal(
+                signal=SignalType.VOLUME_DRY_UP.value,
+                strength=strength,
+                description=(
+                    f"24h volume down {abs(avg_vol):.0f}% — low conviction, potential range-bound"
+                ),
+            )
+        )
 
     return signals
 

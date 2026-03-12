@@ -32,10 +32,10 @@ cp .env.example .env
 WHITELISTED_WALLET_PRIVATE_KEY=0x...   # Dev wallet (0x prefix required)
 AGENT_WALLET_ADDRESS=0x...             # Smart contract wallet from ACP portal
 ENTITY_ID=                             # Integer from agent registration
-DATABASE_URL=postgresql://...          # Supabase
-TERMINAL_API_URL=https://...           # MAFIA Terminal API
-COINMARKETCAP_API_KEY=                 # For F&G fallback data
-ANTHROPIC_API_KEY=sk-ant-...           # For market analysis narratives
+TERMINAL_API_URL=https://...           # MAFIA Terminal API (serves F&G + market data)
+LLM_BASE_URL=https://openrouter.ai/api/v1  # Any OpenAI-compatible provider
+LLM_API_KEY=sk-or-...                 # Provider API key
+LLM_MODEL=deepseek/deepseek-chat      # Model identifier
 ```
 
 ## Run

@@ -1,21 +1,19 @@
-"""Fear & Greed Index data feed with fallback sources."""
+"""Fear & Greed Index data from Alternative.me free API.
+
+Fetches current F&G value and tracks history for period changes and trends.
+"""
 
 from __future__ import annotations
 
 import logging
 from collections import deque
 from datetime import UTC, datetime
-from typing import Any
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-# Alternative.me free API (primary)
 ALTERNATIVE_ME_URL = "https://api.alternative.me/fng/"
-# CoinMarketCap (fallback, requires API key)
-CMC_FNG_URL = "https://pro-api.coinmarketcap.com/v3/fear-and-greed/latest"
-CMC_FNG_HISTORICAL_URL = "https://pro-api.coinmarketcap.com/v3/fear-and-greed/historical"
 
 
 class FearAndGreedData:
@@ -27,38 +25,63 @@ class FearAndGreedData:
 
 
 class FearAndGreedFeed:
-    """Fetches F&G data from Alternative.me (primary) and CoinMarketCap (fallback).
+    """Fetches F&G from Alternative.me and tracks history.
 
-    Maintains a rolling history for calculating period changes and trends.
+    The API updates once per day. We fetch on each refresh cycle
+    but the value only changes daily.
     """
 
-    def __init__(self, cmc_api_key: str = "") -> None:
-        self._cmc_api_key = cmc_api_key
-        self._client = httpx.AsyncClient(timeout=15.0)
-        # Rolling history: newest first, keep up to 30 days of hourly data
+    def __init__(self) -> None:
         self._history: deque[FearAndGreedData] = deque(maxlen=720)
         self._current: FearAndGreedData | None = None
+        self._client = httpx.AsyncClient(timeout=15.0)
+        self._bootstrapped = False
 
-    async def fetch(self) -> FearAndGreedData | None:
-        """Fetch current F&G value. Tries Alternative.me first, then CMC."""
-        data = await self._fetch_alternative_me()
-        if data is None and self._cmc_api_key:
-            data = await self._fetch_cmc()
-        if data is not None:
-            self._current = data
-            self._history.appendleft(data)
-        return data
+    async def fetch(self) -> int | None:
+        """Fetch F&G data from Alternative.me.
 
-    async def fetch_historical(self, days: int = 30) -> list[FearAndGreedData]:
-        """Fetch historical F&G data to bootstrap change calculations."""
-        data = await self._fetch_alternative_me_historical(days)
-        if not data and self._cmc_api_key:
-            data = await self._fetch_cmc_historical(days)
-        if data:
-            # Merge into history (deduplicate by approximate timestamp)
-            for point in reversed(data):
-                self._history.append(point)
-        return data
+        On first call, fetches 31 days of history so that 7d/30d change
+        calculations work immediately. Subsequent calls fetch just the
+        latest value (it only updates once per day anyway).
+
+        Returns the current value (0-100) or None on failure.
+        """
+        limit = 31 if not self._bootstrapped else 1
+        try:
+            resp = await self._client.get(ALTERNATIVE_ME_URL, params={"limit": str(limit)})
+            resp.raise_for_status()
+            data = resp.json()
+            entries = data.get("data", [])
+            if not entries:
+                return None
+
+            if not self._bootstrapped:
+                # Load history oldest-first so deque order is newest-first
+                for entry in reversed(entries):
+                    point = self._parse_entry(entry)
+                    self._history.appendleft(point)
+                self._current = self._history[0]
+                self._bootstrapped = True
+                logger.info("F&G bootstrapped with %d days of history", len(entries))
+            else:
+                point = self._parse_entry(entries[0])
+                # Only append if it's a new data point (different timestamp)
+                if not self._current or point.timestamp != self._current.timestamp:
+                    self._history.appendleft(point)
+                self._current = point
+
+            return self._current.value
+        except Exception as e:
+            logger.warning("Alternative.me F&G fetch failed: %s", e)
+            return None
+
+    @staticmethod
+    def _parse_entry(entry: dict) -> FearAndGreedData:
+        """Parse a single API response entry."""
+        return FearAndGreedData(
+            value=int(entry["value"]),
+            timestamp=datetime.fromtimestamp(int(entry["timestamp"]), tz=UTC),
+        )
 
     @property
     def current_value(self) -> int | None:
@@ -98,7 +121,6 @@ class FearAndGreedFeed:
         points = [p for p in self._history if p.timestamp.timestamp() >= cutoff]
         if len(points) < 2:
             return "flat"
-        # Compare oldest to newest in the period
         oldest = points[-1].value
         newest = points[0].value
         diff = newest - oldest
@@ -118,78 +140,6 @@ class FearAndGreedFeed:
                 best_diff = diff
                 best = point
         return best
-
-    # --- Data source implementations ---
-
-    async def _fetch_alternative_me(self) -> FearAndGreedData | None:
-        """Fetch from Alternative.me free API."""
-        try:
-            resp = await self._client.get(ALTERNATIVE_ME_URL, params={"limit": "1"})
-            resp.raise_for_status()
-            data = resp.json()
-            entry = data["data"][0]
-            return FearAndGreedData(
-                value=int(entry["value"]),
-                timestamp=datetime.fromtimestamp(int(entry["timestamp"]), tz=UTC),
-            )
-        except Exception as e:
-            logger.warning("Alternative.me F&G fetch failed: %s", e)
-            return None
-
-    async def _fetch_alternative_me_historical(self, days: int) -> list[FearAndGreedData]:
-        """Fetch historical data from Alternative.me."""
-        try:
-            resp = await self._client.get(ALTERNATIVE_ME_URL, params={"limit": str(days)})
-            resp.raise_for_status()
-            data = resp.json()
-            return [
-                FearAndGreedData(
-                    value=int(entry["value"]),
-                    timestamp=datetime.fromtimestamp(int(entry["timestamp"]), tz=UTC),
-                )
-                for entry in data.get("data", [])
-            ]
-        except Exception as e:
-            logger.warning("Alternative.me historical fetch failed: %s", e)
-            return []
-
-    async def _fetch_cmc(self) -> FearAndGreedData | None:
-        """Fetch from CoinMarketCap API (fallback)."""
-        try:
-            headers = {"X-CMC_PRO_API_KEY": self._cmc_api_key}
-            resp = await self._client.get(CMC_FNG_URL, headers=headers)
-            resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
-            entry = data["data"]
-            return FearAndGreedData(
-                value=int(entry["value"]),
-                timestamp=datetime.fromisoformat(entry["last_updated"]),
-            )
-        except Exception as e:
-            logger.warning("CMC F&G fetch failed: %s", e)
-            return None
-
-    async def _fetch_cmc_historical(self, days: int) -> list[FearAndGreedData]:
-        """Fetch historical data from CoinMarketCap."""
-        try:
-            headers = {"X-CMC_PRO_API_KEY": self._cmc_api_key}
-            resp = await self._client.get(
-                CMC_FNG_HISTORICAL_URL,
-                headers=headers,
-                params={"limit": str(days)},
-            )
-            resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
-            return [
-                FearAndGreedData(
-                    value=int(entry["value"]),
-                    timestamp=datetime.fromisoformat(entry["timestamp"]),
-                )
-                for entry in data.get("data", [])
-            ]
-        except Exception as e:
-            logger.warning("CMC historical F&G fetch failed: %s", e)
-            return []
 
     async def close(self) -> None:
         await self._client.aclose()
