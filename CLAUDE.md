@@ -53,10 +53,10 @@ uv run python -m src.main
 uv run pytest
 
 # Run a single test file
-uv run pytest tests/test_monitor.py
+uv run pytest tests/test_fear_and_greed.py
 
 # Run a specific test
-uv run pytest tests/test_monitor.py::test_condition_evaluation -v
+uv run pytest tests/test_fear_and_greed.py::test_handle_fear_and_greed_request -v
 
 # Type checking
 uv run mypy src/

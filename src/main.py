@@ -174,10 +174,11 @@ async def main() -> None:
 
     # --- Keep Alive ---
     shutdown_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
 
     def handle_shutdown(sig: int, frame: object) -> None:
         logger.info("Shutdown signal received (%s)", sig)
-        shutdown_event.set()
+        loop.call_soon_threadsafe(shutdown_event.set)
 
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
@@ -193,6 +194,7 @@ async def main() -> None:
         except Exception:
             pass
         feed_task.cancel()
+        await asyncio.gather(feed_task, return_exceptions=True)
         await terminal_feed.stop()
         logger.info("MAFIA ACP Agent stopped.")
 

@@ -109,10 +109,10 @@ def _avg_volume_change(data: MarketDataCache) -> float:
         data.eth_volume_change_24h,
         data.sol_volume_change_24h,
     ]
-    non_zero = [c for c in changes if c != 0.0]
-    if not non_zero:
+    valid_changes = [c for c in changes if c is not None]
+    if not valid_changes or all(c == 0.0 for c in valid_changes):
         return 0.0
-    return sum(non_zero) / len(non_zero)
+    return sum(valid_changes) / len(valid_changes)
 
 
 def _volume_strength(change: float) -> str:

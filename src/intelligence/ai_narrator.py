@@ -29,7 +29,7 @@ Rules:
 - Be direct about what the data suggests, not what you think will happen
 
 Return ONLY valid JSON:
-{"summary": "2-3 sentences", "outlook": "bullish_short_term | bearish_short_term | neutral"}"""
+{"summary": "2-3 sentences", "outlook": "bullish_short_term | bearish_short_term | neutral | bullish_short_term_bearish_medium_term | bearish_short_term_bullish_medium_term"}"""
 
 
 async def generate_narrative(

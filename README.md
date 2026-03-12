@@ -48,7 +48,7 @@ uv run python -m src.main
 
 ```bash
 uv run pytest                      # Run tests
-uv run pytest tests/test_monitor.py -v  # Single file
+uv run pytest tests/test_fear_and_greed.py -v  # Single file
 uv run ruff check src/             # Lint
 uv run ruff format src/            # Format
 ```

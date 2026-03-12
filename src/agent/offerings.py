@@ -10,10 +10,6 @@ These define the 4 services MAFIA provides via ACP:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 # --- Requirement Schemas ---
 

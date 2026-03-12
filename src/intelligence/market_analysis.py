@@ -167,7 +167,7 @@ def _handle_transaction(job: ACPJob, cache: DataCache, acp_client: VirtualsACP) 
     data = cache._data  # Direct access in sync context
 
     # Build the report
-    report = _build_report(data, focus_assets, include_analysis, acp_client)
+    report = _build_report(data, focus_assets, include_analysis)
 
     logger.info("Delivering market_sentiment job %d", job.id)
     job.deliver(json.dumps(report))
@@ -199,7 +199,6 @@ def _build_report(
     data: MarketDataCache,
     focus_assets: list[str],
     include_analysis: bool,
-    acp_client: VirtualsACP,
 ) -> dict:
     """Assemble the complete market sentiment report."""
     now = datetime.now(UTC)
