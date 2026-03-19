@@ -25,7 +25,7 @@ from virtuals_acp.contract_clients.contract_client_v2 import ACPContractClientV2
 from src.agent.config import Settings, setup_logging
 from src.agent.router import JobRouter
 from src.data.cache import DataCache
-from src.data.idempotency import IdempotencyStore
+from src.data.idempotency import IdempotencyStore, PostgresIdempotencyStore
 from src.data.terminal_feed import TerminalFeed
 from src.intelligence.fear_and_greed import handle_fear_and_greed
 from src.intelligence.market_analysis import handle_market_sentiment
@@ -128,7 +128,12 @@ async def main() -> None:
 
     # --- Data Layer ---
     data_cache = DataCache(stale_threshold_seconds=settings.stale_data_threshold_seconds)
-    idempotency_store = IdempotencyStore(db_path=settings.idempotency_db_path)
+    if settings.database_url:
+        logger.info("Idempotency store: PostgreSQL (Supabase)")
+        idempotency_store = PostgresIdempotencyStore(settings.database_url)
+    else:
+        logger.info("Idempotency store: SQLite (%s)", settings.idempotency_db_path)
+        idempotency_store = IdempotencyStore(db_path=settings.idempotency_db_path)
     terminal_feed = TerminalFeed(settings=settings, cache=data_cache)
 
     # --- Job Router ---

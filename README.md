@@ -6,12 +6,12 @@ MAFIA acts as both an ACP **Provider** (selling intelligence jobs) and **Client*
 
 ## Jobs
 
-| Job | Price | Type | Description |
-|-----|-------|------|-------------|
-| `fear_and_greed` | $0.10 | Service | Current F&G Index with trend context |
-| `market_sentiment` | $0.25 | Service | Full market report with AI analysis |
-| `smart_buy` | $0.50 | Fund-transfer | Conditional buy when conditions align |
-| `take_profit` | $0.50 | Fund-transfer | Conditional sell on exit signals |
+| Job | Price | Type | Status | Description |
+|-----|-------|------|--------|-------------|
+| `fear_and_greed` | $0.10 | Service | Live | Current F&G Index with trend context |
+| `market_sentiment` | $0.25 | Service | Live | Full market report with AI analysis |
+| `smart_buy` | $0.50 | Fund-transfer | Phase 2 | Conditional buy when conditions align |
+| `take_profit` | $0.50 | Fund-transfer | Phase 2 | Conditional sell on exit signals |
 
 ## Setup
 
@@ -61,7 +61,7 @@ See [docs/MAFIA_ACP_AGENT_ARCHITECTURE.md](docs/MAFIA_ACP_AGENT_ARCHITECTURE.md)
 src/
 ├── agent/          # ACP client, job routing, config
 ├── intelligence/   # F&G, market analysis, signal detection, AI narrator
-├── monitor/        # Condition evaluation loop (smart_buy/take_profit)
-├── execution/      # Swap agent orchestration via nested ACP jobs
+├── monitor/        # Condition evaluation loop (Phase 2 — smart_buy/take_profit)
+├── execution/      # Swap agent orchestration via nested ACP jobs (Phase 2)
 └── data/           # Terminal API feed, in-memory cache, models
 ```

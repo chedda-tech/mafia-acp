@@ -1,0 +1,31 @@
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment variables
+.env
+.env.local
+
+# Git
+.git/
+.gitignore
+
+# IDE / Editor
+.vscode/
+.claude/
+.idea/
+
+# Local data / DBs
+data/
+*.sqlite
+*.sqlite3
+*.db

@@ -22,12 +22,12 @@
 
 ## Jobs Overview
 
-| Job | Fee | Fee Type | SLA | Required Funds |
-|---|---|---|---|---|
-| `fear_and_greed` | $0.10 | fixed | 1 min | No |
-| `market_sentiment` | $0.25 | fixed | 2 min | No |
-| `smart_buy` | $0.50 | fixed | 72 hours (4320 min) | Yes |
-| `take_profit` | $0.50 | fixed | 7 days (10080 min) | Yes |
+| Job | Fee | Fee Type | SLA | Required Funds | Status |
+|---|---|---|---|---|---|
+| `fear_and_greed` | $0.10 | fixed | 1 min | No | **Live** |
+| `market_sentiment` | $0.25 | fixed | 2 min | No | **Live** |
+| `smart_buy` | $0.50 | fixed | 72 hours (4320 min) | Yes | Phase 2 — not yet registered |
+| `take_profit` | $0.50 | fixed | 7 days (10080 min) | Yes | Phase 2 — not yet registered |
 
 ---
 
@@ -92,7 +92,9 @@
 
 ---
 
-## Job 3: `smart_buy`
+## Job 3: `smart_buy` _(Phase 2 — not yet live)_
+
+> **Not registered on launch.** Pending escrow fund handling and nested ACP swap agent orchestration. Schemas preserved for reference.
 
 **Description:** Conditional buy execution. Monitors market conditions (Fear & Greed, price, BTC dominance) and executes a token purchase via swap agent when conditions align. Principal refunded if conditions not met within wait window.
 
@@ -243,7 +245,9 @@
 
 ---
 
-## Job 4: `take_profit`
+## Job 4: `take_profit` _(Phase 2 — not yet live)_
+
+> **Not registered on launch.** Pending escrow fund handling and nested ACP swap agent orchestration. Schemas preserved for reference.
 
 **Description:** Conditional sell execution. Monitors for exit conditions (greed exhaustion, momentum fade, or custom) and sells via swap agent when triggers hit. Principal refunded if conditions not met within wait window.
 

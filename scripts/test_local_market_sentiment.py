@@ -28,7 +28,11 @@ async def main():
 
     print("\n================== PARSED METRICS ==================")
     print(f"BTC Price:          ${data.btc_price:,.2f}")
+    print(f"ETH Price:          ${data.eth_price:,.2f}")
+    print(f"SOL Price:          ${data.sol_price:,.2f}")
     print(f"BTC 24h Change:      {data.btc_change_24h:.2f}%")
+    print(f"ETH 24h Change:      {data.eth_change_24h:.2f}%")
+    print(f"SOL 24h Change:      {data.sol_change_24h:.2f}%")
     print(f"BTC 7d Change:       {data.btc_change_7d:.2f}%")
     print(f"BTC Dominance:       {data.btc_dominance:.2f}%")
     print(f"Total Market Cap:   ${data.total_market_cap:,.2f}")

@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     entity_id: int
     acp_network: str = "testnet"
 
+    # Database (Supabase PostgreSQL — required for Railway, optional for local dev)
+    database_url: str = ""
+
     # Mafia API
     mafia_api_base_url: str = ""
 
