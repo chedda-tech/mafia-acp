@@ -109,47 +109,123 @@ class TerminalFeed:
             cache_data.fg_classification,
         )
 
-    async def _fetch_terminal_data(self) -> dict:
-        """Fetch market data from the Terminal API."""
-        if not self._settings.terminal_api_url:
+    async def _fetch_terminal_data(self) -> dict | list:
+        """Fetch market data from the Mafia API."""
+        if not self._settings.mafia_api_base_url:
             return {}
+
+        base_url = self._settings.mafia_api_base_url.rstrip("/")
+        # We can use /api/metrics/multi-period to get rich data
+        endpoint = f"{base_url}/api/metrics/multi-period"
+        params = {
+            "periods": "1h,24h,7d,30d",
+            "metrics": "BTC.PRICE,BTC.DOMINANCE,BTC.VOLUME_24H,ETH.PRICE,ETH.VOLUME_24H,SOL.PRICE,SOL.VOLUME_24H,TOTAL_MARKET_CAP,TOTAL_VOLUME_24H",
+        }
 
         try:
-            resp = await self._client.get(self._settings.terminal_api_url)
+            resp = await self._client.get(endpoint, params=params)
             resp.raise_for_status()
-            return resp.json()
+            data = resp.json().get("data", [])
+            return data
         except Exception as e:
-            logger.warning("Terminal API fetch failed: %s", e)
+            logger.warning("Mafia API fetch failed: %s", e)
             return {}
 
-    def _parse_market_data(self, data: dict) -> dict:
+    def _safe_float(
+        self,
+        data: dict,
+        key: str,
+        fallback_key: str | None = None,
+        change_period: str | None = None,
+    ) -> float:
+        """Extract float value safely, checking multiple potential structures."""
+        # 1. Try flat key (e.g. 'btc_price')
+        if key in data:
+            return float(data[key] or 0)
+
+        # 2. Try nested structure from multi-period (e.g. 'BTC.PRICE' -> 'value' or 'changes')
+        if fallback_key and fallback_key in data:
+            val = data[fallback_key]
+            if isinstance(val, dict):
+                if change_period:
+                    changes = val.get("changes", {})
+                    # If changes is a dict, get the period, else it might have direct keys or be flat.
+                    if isinstance(changes, dict):
+                        return float(
+                            changes.get(change_period, changes.get(change_period.upper(), 0)) or 0
+                        )
+                    return 0.0
+                return float(val.get("value", 0) or 0)
+            # If flat value returned directly from fallback_key
+            if not change_period:
+                return float(val or 0)
+
+        return 0.0
+
+    def _parse_market_data(self, raw_data: dict | list) -> dict:
         """Parse Terminal API response into cache fields.
 
         Adapt field names here when the actual API response format is known.
         """
-        if not data:
+        if not raw_data:
             return {}
 
+        data = {}
+        # Multi-period payload flattens to nested structures -> {"BTC.PRICE": {"value": 123, "changes": {"24h": -0.56}}}
+        if isinstance(raw_data, list):
+            for period_data in raw_data:
+                period = period_data.get("period", "")
+                metrics = period_data.get("metrics", [])
+                for m in metrics:
+                    asset = m.get("asset", "")
+                    metric_name = m.get("metric", "")
+
+                    key = f"{asset}.{metric_name}" if asset else metric_name
+
+                    if key not in data:
+                        data[key] = {}
+
+                    data[key]["value"] = m.get("current", {}).get("value", 0.0)
+
+                    if "changes" not in data[key]:
+                        data[key]["changes"] = {}
+
+                    data[key]["changes"][period] = m.get("change", {}).get("percent", 0.0)
+        else:
+            data = raw_data
+
         return {
-            "btc_price": float(data.get("btc_price", 0)),
-            "btc_change_24h": float(data.get("btc_change_24h", 0)),
-            "btc_change_7d": float(data.get("btc_change_7d", 0)),
-            "btc_dominance": float(data.get("btc_dominance", 0)),
-            "btc_dominance_change_24h": float(data.get("btc_dominance_change_24h", 0)),
-            "btc_volume_24h": float(data.get("btc_volume_24h", 0)),
-            "btc_volume_change_24h": float(data.get("btc_volume_change_24h", 0)),
-            "eth_price": float(data.get("eth_price", 0)),
-            "eth_change_24h": float(data.get("eth_change_24h", 0)),
-            "eth_change_7d": float(data.get("eth_change_7d", 0)),
-            "eth_volume_24h": float(data.get("eth_volume_24h", 0)),
-            "eth_volume_change_24h": float(data.get("eth_volume_change_24h", 0)),
-            "sol_price": float(data.get("sol_price", 0)),
-            "sol_change_24h": float(data.get("sol_change_24h", 0)),
-            "sol_change_7d": float(data.get("sol_change_7d", 0)),
-            "sol_volume_24h": float(data.get("sol_volume_24h", 0)),
-            "sol_volume_change_24h": float(data.get("sol_volume_change_24h", 0)),
-            "total_market_cap": float(data.get("total_market_cap", 0)),
-            "total_market_cap_change_24h": float(data.get("total_market_cap_change_24h", 0)),
-            "total_market_cap_change_7d": float(data.get("total_market_cap_change_7d", 0)),
-            "total_volume_24h": float(data.get("total_volume_24h", 0)),
+            "btc_price": self._safe_float(data, "btc_price", "BTC.PRICE"),
+            "btc_change_24h": self._safe_float(data, "btc_change_24h", "BTC.PRICE", "24h"),
+            "btc_change_7d": self._safe_float(data, "btc_change_7d", "BTC.PRICE", "7d"),
+            "btc_dominance": self._safe_float(data, "btc_dominance", "BTC.DOMINANCE"),
+            "btc_dominance_change_24h": self._safe_float(
+                data, "btc_dominance_change_24h", "BTC.DOMINANCE", "24h"
+            ),
+            "btc_volume_24h": self._safe_float(data, "btc_volume_24h", "BTC.VOLUME_24H"),
+            "btc_volume_change_24h": self._safe_float(
+                data, "btc_volume_change_24h", "BTC.VOLUME_24H", "24h"
+            ),
+            "eth_price": self._safe_float(data, "eth_price", "ETH.PRICE"),
+            "eth_change_24h": self._safe_float(data, "eth_change_24h", "ETH.PRICE", "24h"),
+            "eth_change_7d": self._safe_float(data, "eth_change_7d", "ETH.PRICE", "7d"),
+            "eth_volume_24h": self._safe_float(data, "eth_volume_24h", "ETH.VOLUME_24H"),
+            "eth_volume_change_24h": self._safe_float(
+                data, "eth_volume_change_24h", "ETH.VOLUME_24H", "24h"
+            ),
+            "sol_price": self._safe_float(data, "sol_price", "SOL.PRICE"),
+            "sol_change_24h": self._safe_float(data, "sol_change_24h", "SOL.PRICE", "24h"),
+            "sol_change_7d": self._safe_float(data, "sol_change_7d", "SOL.PRICE", "7d"),
+            "sol_volume_24h": self._safe_float(data, "sol_volume_24h", "SOL.VOLUME_24H"),
+            "sol_volume_change_24h": self._safe_float(
+                data, "sol_volume_change_24h", "SOL.VOLUME_24H", "24h"
+            ),
+            "total_market_cap": self._safe_float(data, "total_market_cap", "TOTAL_MARKET_CAP"),
+            "total_market_cap_change_24h": self._safe_float(
+                data, "total_market_cap_change_24h", "TOTAL_MARKET_CAP", "24h"
+            ),
+            "total_market_cap_change_7d": self._safe_float(
+                data, "total_market_cap_change_7d", "TOTAL_MARKET_CAP", "7d"
+            ),
+            "total_volume_24h": self._safe_float(data, "total_volume_24h", "TOTAL_VOLUME_24H"),
         }

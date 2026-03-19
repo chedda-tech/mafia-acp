@@ -19,7 +19,8 @@ if TYPE_CHECKING:
     from virtuals_acp.job import ACPJob
     from virtuals_acp.memo import ACPMemo
 
-    from src.data.cache import DataCache
+from src.data.cache import DataCache
+from src.intelligence.signal_detector import map_market_regime
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +245,7 @@ def _handle_transaction(job: ACPJob, memo_to_sign: ACPMemo | None, cache: DataCa
         logger.warning("Cache is stale for job %d — delivering with stale data warning", job.id)
 
     data = cache._data  # Direct access since we're in sync context
+    regimes = map_market_regime(data)
 
     deliverable = json.dumps(
         {
@@ -253,6 +255,7 @@ def _handle_transaction(job: ACPJob, memo_to_sign: ACPMemo | None, cache: DataCa
             "change_24h": data.fg_change_24h,
             "change_7d": data.fg_change_7d,
             "change_30d": data.fg_change_30d,
+            "regime": regimes["sentiment_regime"],
             "timestamp": datetime.now(UTC).isoformat(),
             "source": "alternative_me",
         }

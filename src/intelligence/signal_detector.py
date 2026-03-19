@@ -18,6 +18,69 @@ from src.data.models import MarketDataCache, Signal, SignalStrength, SignalType
 logger = logging.getLogger(__name__)
 
 
+def map_market_regime(data: MarketDataCache) -> dict[str, str | float]:
+    """Deterministically map market state to a predefined regime for the AI narrator.
+
+    This ensures the AI is constrained to commenting on safe, deterministic rules
+    rather than inventing trading advice.
+    """
+    # 1. Fear and Greed Baseline
+    fg = data.fg_value
+    if fg <= 24:
+        sentiment_regime = "Extreme Fear"
+    elif fg <= 45:
+        sentiment_regime = "Fear"
+    elif fg <= 54:
+        sentiment_regime = "Neutral"
+    elif fg <= 74:
+        sentiment_regime = "Greed"
+    else:
+        sentiment_regime = "Extreme Greed"
+
+    # 2. Trend Mapping (Using BTC 7d vs 30d changes as proxy, or 24h vs 7d since we only cache up to 7d reliably for now)
+    # The cache actually has 7d, wait let's check MarketDataCache
+    # MarketDataCache has btc_change_24h and btc_change_7d.
+    # We can use that.
+    short_term = data.btc_change_24h
+    medium_term = data.btc_change_7d
+
+    if short_term < 0 and medium_term > 0:
+        trend_regime = "Short-term pullback in a structural uptrend"
+    elif short_term > 0 and medium_term < 0:
+        trend_regime = "Short-term relief bounce in a structural downtrend"
+    elif short_term > 0 and medium_term > 0:
+        trend_regime = "Bullish momentum acceleration"
+    else:
+        trend_regime = "Capitulation / Distribution regime"
+
+    # 3. Volatility / Volume regime
+    avg_vol = _avg_volume_change(data)
+    if avg_vol > 30:
+        vol_regime = "High accumulation/distribution (Elevated Volume)"
+    elif avg_vol < -20:
+        vol_regime = "Low conviction / Ranging (Depressed Volume)"
+    else:
+        vol_regime = "Average trading activity"
+
+    # 4. Dominance
+    if data.btc_dominance_change_24h > 0.5:
+        dom_regime = "Flight to safety / BTC outperformance"
+    elif data.btc_dominance_change_24h < -0.5:
+        dom_regime = "Risk-on / Altcoin rotation"
+    else:
+        dom_regime = "Stable dominance"
+
+    return {
+        "sentiment_regime": sentiment_regime,
+        "trend_regime": trend_regime,
+        "volume_regime": vol_regime,
+        "dominance_regime": dom_regime,
+        "btc_change_24h": short_term,
+        "btc_change_7d": medium_term,
+        "fg_value": fg,
+    }
+
+
 def detect_signals(data: MarketDataCache) -> list[Signal]:
     """Evaluate current market data against all signal patterns."""
     signals: list[Signal] = []

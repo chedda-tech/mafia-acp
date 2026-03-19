@@ -1,8 +1,8 @@
 """Tests for signal detection, market analysis, and AI narrator."""
 
-from src.data.models import MarketDataCache, MarketOutlook
-from src.intelligence.ai_narrator import _determine_outlook, _fallback_analysis
-from src.intelligence.signal_detector import detect_signals
+from src.data.models import MarketDataCache
+from src.intelligence.ai_narrator import _fallback_analysis
+from src.intelligence.signal_detector import detect_signals, map_market_regime
 
 
 class TestSignalDetection:
@@ -105,17 +105,6 @@ class TestFallbackAnalysis:
         result = _fallback_analysis(data, signals)
         assert "summary" in result
         assert "signals" in result
-        assert "outlook" in result
+        assert "regime" in result
         assert "22" in result["summary"]
 
-    def test_outlook_fear_capitulation(self):
-        from src.data.models import Signal
-        signals = [Signal(signal="fear_capitulation", strength="strong", description="test")]
-        data = MarketDataCache(fg_value=18)
-        outlook = _determine_outlook(data, signals)
-        assert outlook == MarketOutlook.BEARISH_SHORT_BULLISH_MEDIUM.value
-
-    def test_outlook_neutral(self):
-        data = MarketDataCache(fg_value=50)
-        outlook = _determine_outlook(data, [])
-        assert outlook == MarketOutlook.NEUTRAL.value

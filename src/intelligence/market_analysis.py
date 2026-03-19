@@ -18,7 +18,7 @@ from virtuals_acp.models import ACPJobPhase, ACPMemoStatus
 
 from src.data.models import MarketDataCache, format_market_cap
 from src.intelligence.ai_narrator import generate_narrative
-from src.intelligence.signal_detector import detect_signals
+from src.intelligence.signal_detector import detect_signals, map_market_regime
 
 if TYPE_CHECKING:
     from virtuals_acp.client import VirtualsACP
@@ -202,9 +202,11 @@ def _build_report(
 ) -> dict:
     """Assemble the complete market sentiment report."""
     now = datetime.now(UTC)
+    regimes = map_market_regime(data)
 
     report: dict = {
         "timestamp": now.isoformat(),
+        "regimes": regimes,
         "fear_and_greed": {
             "value": data.fg_value,
             "classification": data.fg_classification,

@@ -143,16 +143,6 @@ class SignalStrength(StrEnum):
     STRONG = "strong"
 
 
-class MarketOutlook(StrEnum):
-    BULLISH_SHORT_TERM = "bullish_short_term"
-    BULLISH_MEDIUM_TERM = "bullish_medium_term"
-    BEARISH_SHORT_TERM = "bearish_short_term"
-    BEARISH_MEDIUM_TERM = "bearish_medium_term"
-    BEARISH_SHORT_BULLISH_MEDIUM = "bearish_short_term_bullish_medium_term"
-    BULLISH_SHORT_BEARISH_MEDIUM = "bullish_short_term_bearish_medium_term"
-    NEUTRAL = "neutral"
-
-
 @dataclass
 class Signal:
     """A detected market signal."""
