@@ -103,7 +103,6 @@ async def generate_narrative(
     regimes = map_market_regime(data)
     market_context = _build_llm_context(regimes, signals)
 
-    client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=30.0)
     messages = [
         {
             "role": "user",
@@ -112,34 +111,35 @@ async def generate_narrative(
     ]
 
     last_error: Exception | None = None
-    for attempt in range(2):
-        if attempt > 0:
-            await asyncio.sleep(3)
-            logger.info("[NARRATOR] Retrying LLM call (attempt %d)", attempt + 1)
-        try:
-            response = await client.chat.completions.create(
-                model=model,
-                max_tokens=400,
-                messages=messages,
-            )
-            result = json.loads(response.choices[0].message.content)
-            if not _is_sentiment_consistent(result, regimes):
-                logger.warning(
-                    "[NARRATOR] Sentiment inconsistency for trajectory '%s' — using fallback",
-                    regimes.get("fg_trajectory", ""),
+    async with openai.AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=30.0) as client:
+        for attempt in range(2):
+            if attempt > 0:
+                await asyncio.sleep(3)
+                logger.info("[NARRATOR] Retrying LLM call (attempt %d)", attempt + 1)
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    max_tokens=400,
+                    messages=messages,
                 )
-                return _fallback_analysis(data, signals)
-            return {
-                "overview":  result.get("overview", ""),
-                "analysis":  result.get("analysis", ""),
-                "insight":   result.get("insight", ""),
-                "altseason": result.get("altseason", regimes.get("altseason_signal", "")),
-                "signals":   [s.to_dict() for s in signals],
-                "regime":    regimes["trend_regime"],
-            }
-        except Exception as e:
-            last_error = e
-            logger.warning("[NARRATOR] LLM attempt %d failed: %s", attempt + 1, e)
+                result = json.loads(response.choices[0].message.content)
+                if not _is_sentiment_consistent(result, regimes):
+                    logger.warning(
+                        "[NARRATOR] Sentiment inconsistency for trajectory '%s' — using fallback",
+                        regimes.get("fg_trajectory", ""),
+                    )
+                    return _fallback_analysis(data, signals)
+                return {
+                    "overview":  result.get("overview", ""),
+                    "analysis":  result.get("analysis", ""),
+                    "insight":   result.get("insight", ""),
+                    "altseason": result.get("altseason", regimes.get("altseason_signal", "")),
+                    "signals":   [s.to_dict() for s in signals],
+                    "regime":    regimes["trend_regime"],
+                }
+            except Exception as e:
+                last_error = e
+                logger.warning("[NARRATOR] LLM attempt %d failed: %s", attempt + 1, e)
 
     logger.error("[NARRATOR] All LLM attempts failed, using fallback. Last error: %s", last_error)
     return _fallback_analysis(data, signals)
@@ -177,8 +177,8 @@ def _fallback_analysis(data: MarketDataCache, signals: list[Signal]) -> dict[str
     """Generate a basic analysis without AI when the LLM is unavailable."""
     regimes = map_market_regime(data)
 
-    # Overview: factual snapshot
-    overview_parts = [f"F&G at {data.fg_value} ({data.fg_classification})."]
+    # Overview: factual snapshot — derive classification from value, not cached string
+    overview_parts = [f"F&G at {data.fg_value} ({regimes['sentiment_regime'].lower()})."]
     if data.btc_change_24h != 0:
         direction = "up" if data.btc_change_24h > 0 else "down"
         overview_parts.append(f"BTC {direction} {abs(data.btc_change_24h):.1f}% today.")

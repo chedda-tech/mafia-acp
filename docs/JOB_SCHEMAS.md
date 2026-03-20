@@ -31,8 +31,9 @@ Jobs 1 & 2 (`fear_and_greed`, `market_sentiment`) are **live**. Jobs 3 & 4 (`sma
   "change_24h": -4,
   "change_7d": -9,
   "change_30d": -18,
+  "regime": "Fear",
   "timestamp": "2026-02-08T14:30:00Z",
-  "source": "mafia_terminal"
+  "source": "coinmarketcap"
 }
 ```
 

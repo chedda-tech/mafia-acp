@@ -201,26 +201,32 @@ class PostgresIdempotencyStore:
                 return bool(row and row[0])
 
     def acquire_job_lock(self, job_id: int, owner_id: str, ttl_seconds: int) -> bool:
-        """Acquire an expiring per-job lock. Returns True only when a new lock is acquired."""
+        """Acquire an expiring per-job lock.
+
+        Returns True when the lock is acquired — either as a fresh insert or by
+        overwriting an expired lock. Returns False when a live lock already exists.
+        """
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=ttl_seconds)
         with self._lock, self._connect() as conn:
             with conn.cursor() as cur:
-                # Single atomic upsert: insert only if no live lock exists (expired rows are
-                # overwritten). RETURNING tells us whether a row was actually inserted (xmax=0).
+                # Atomic upsert: insert if no row exists; overwrite if the existing
+                # lock is expired. A live lock causes the WHERE to fail → no row → False.
                 cur.execute(
                     """
                     INSERT INTO mafia_acp.job_locks (job_id, owner_id, acquired_at, expires_at)
                     VALUES (%s, %s, %s, %s)
                     ON CONFLICT (job_id) DO UPDATE
-                        SET job_id = EXCLUDED.job_id
+                        SET owner_id    = EXCLUDED.owner_id,
+                            acquired_at = EXCLUDED.acquired_at,
+                            expires_at  = EXCLUDED.expires_at
                         WHERE mafia_acp.job_locks.expires_at <= EXCLUDED.acquired_at
-                    RETURNING (xmax = 0)
+                    RETURNING true
                     """,
                     (job_id, owner_id, now, expires_at),
                 )
                 row = cur.fetchone()
-                return bool(row and row[0])
+                return bool(row)
 
     def renew_job_lock(self, job_id: int, owner_id: str, ttl_seconds: int) -> bool:
         """Renew lock expiry if currently held by owner."""

@@ -111,8 +111,9 @@ FEAR_AND_GREED_DELIVERABLE = json.dumps(
         "change_24h": 0,
         "change_7d": 0,
         "change_30d": 0,
+        "regime": "Neutral",
         "timestamp": "2026-01-01T00:00:00Z",
-        "source": "mafia_terminal",
+        "source": "coinmarketcap",
     }
 )
 
