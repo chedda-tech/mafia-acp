@@ -70,6 +70,23 @@ def _install_socket_event_logger(acp_client: VirtualsACP) -> None:
     logger.info("[DIAG] socket event logger installed")
 
 
+async def _watch_socket_health(acp_client: VirtualsACP, interval: int = 30) -> None:
+    """Log socket.io connection state every `interval` seconds.
+
+    Makes silent NAT-induced disconnections immediately visible in Railway logs.
+    """
+    while True:
+        await asyncio.sleep(interval)
+        connected = getattr(acp_client.sio, "connected", None)
+        if not connected:
+            logger.warning(
+                "[SOCKET-HEALTH] socket.io DISCONNECTED (connected=%s) — waiting for auto-reconnect",
+                connected,
+            )
+        else:
+            logger.info("[SOCKET-HEALTH] socket.io connected OK")
+
+
 def _install_prepare_result_logger() -> None:
     """TEMPORARY DIAGNOSTIC: log prepare_result before send_prepared_calls."""
     import json as _json
@@ -171,10 +188,21 @@ async def main() -> None:
     router.set_acp_client(acp_client)
     _install_socket_event_logger(acp_client)
 
+    # Log the socket.io transport in use (websocket vs polling) — critical for Railway diagnosis
+    sio = acp_client.sio
+    transport = (
+        getattr(getattr(sio, "eio", None), "transport", None)
+        or getattr(sio, "transport", None)
+        or "unknown"
+    )
+    transport_name = getattr(transport, "name", str(transport))
+    logger.info("[SOCKET-TRANSPORT] %s", transport_name)
+
     logger.info("ACP client connected — agent is online")
 
-    # --- Start Data Feed ---
+    # --- Start Data Feed + Socket Health Watcher ---
     feed_task = asyncio.create_task(terminal_feed.start())
+    health_task = asyncio.create_task(_watch_socket_health(acp_client))
     logger.info("Data feed started (refresh every %ds)", settings.data_refresh_interval_seconds)
 
     # --- Keep Alive ---
@@ -199,7 +227,8 @@ async def main() -> None:
         except Exception:
             pass
         feed_task.cancel()
-        await asyncio.gather(feed_task, return_exceptions=True)
+        health_task.cancel()
+        await asyncio.gather(feed_task, health_task, return_exceptions=True)
         await terminal_feed.stop()
         logger.info("MAFIA ACP Agent stopped.")
 
