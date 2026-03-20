@@ -37,10 +37,16 @@ class Settings(BaseSettings):
     job_lock_ttl_seconds: int = 300
 
 
+class _BelowWarning(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno < logging.WARNING
+
+
 def setup_logging(level: str = "INFO") -> None:
     """Configure logging for the application.
 
-    INFO and below → stdout. WARNING and above → stderr.
+    Records below WARNING go to stdout; WARNING and above go to stderr,
+    subject to the configured global log level.
     """
     import sys
 
@@ -50,12 +56,17 @@ def setup_logging(level: str = "INFO") -> None:
 
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setLevel(numeric_level)
-    stdout_handler.addFilter(lambda r: r.levelno < logging.WARNING)
+    stdout_handler.addFilter(_BelowWarning())
     stdout_handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
 
     stderr_handler = logging.StreamHandler(sys.stderr)
     stderr_handler.setLevel(logging.WARNING)
     stderr_handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
 
-    logging.root.setLevel(numeric_level)
-    logging.root.handlers = [stdout_handler, stderr_handler]
+    root = logging.getLogger()
+    for handler in root.handlers[:]:
+        handler.close()
+    root.handlers.clear()
+    root.setLevel(numeric_level)
+    root.addHandler(stdout_handler)
+    root.addHandler(stderr_handler)
