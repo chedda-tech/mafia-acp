@@ -55,7 +55,10 @@ class TerminalFeed:
         raw = await self._fetch_terminal_data()
         parsed = self._parse_market_data(raw)
 
-        fg = int(parsed.get("fg_value", 50) or 50)
+        fg = int(parsed.get("fg_value") or 0)
+        if fg == 0:
+            logger.warning("Feed refresh produced no F&G value — keeping last cached data")
+            return
         now = datetime.now(UTC)
 
         cache_data = MarketDataCache(
@@ -104,7 +107,7 @@ class TerminalFeed:
         endpoint = f"{base_url}/api/metrics/multi-period"
         params = {
             "periods": "1h,24h,7d,30d",
-            "metrics": "FEAR_GREED_INDEX,BTC.PRICE,BTC.DOMINANCE,BTC.VOLUME_24H,ETH.PRICE,ETH.VOLUME_24H,SOL.PRICE,SOL.VOLUME_24H,TOTAL_MARKET_CAP,TOTAL_VOLUME_24H",
+            "metrics": "FEAR_GREED_INDEX,BTC.PRICE,BTC.DOMINANCE,BTC.VOLUME,ETH.PRICE,ETH.VOLUME,SOL.PRICE,SOL.VOLUME,TOTAL_MARKET_CAP,TOTAL_VOLUME",
         }
 
         try:
@@ -212,23 +215,23 @@ class TerminalFeed:
             "btc_dominance_change_7d": self._safe_float(
                 data, "btc_dominance_change_7d", "BTC.DOMINANCE", "7d"
             ),
-            "btc_volume_24h": self._safe_float(data, "btc_volume_24h", "BTC.VOLUME_24H"),
+            "btc_volume_24h": self._safe_float(data, "btc_volume_24h", "BTC.VOLUME"),
             "btc_volume_change_24h": self._safe_float(
-                data, "btc_volume_change_24h", "BTC.VOLUME_24H", "24h"
+                data, "btc_volume_change_24h", "BTC.VOLUME", "24h"
             ),
             "eth_price": self._safe_float(data, "eth_price", "ETH.PRICE"),
             "eth_change_24h": self._safe_float(data, "eth_change_24h", "ETH.PRICE", "24h"),
             "eth_change_7d": self._safe_float(data, "eth_change_7d", "ETH.PRICE", "7d"),
-            "eth_volume_24h": self._safe_float(data, "eth_volume_24h", "ETH.VOLUME_24H"),
+            "eth_volume_24h": self._safe_float(data, "eth_volume_24h", "ETH.VOLUME"),
             "eth_volume_change_24h": self._safe_float(
-                data, "eth_volume_change_24h", "ETH.VOLUME_24H", "24h"
+                data, "eth_volume_change_24h", "ETH.VOLUME", "24h"
             ),
             "sol_price": self._safe_float(data, "sol_price", "SOL.PRICE"),
             "sol_change_24h": self._safe_float(data, "sol_change_24h", "SOL.PRICE", "24h"),
             "sol_change_7d": self._safe_float(data, "sol_change_7d", "SOL.PRICE", "7d"),
-            "sol_volume_24h": self._safe_float(data, "sol_volume_24h", "SOL.VOLUME_24H"),
+            "sol_volume_24h": self._safe_float(data, "sol_volume_24h", "SOL.VOLUME"),
             "sol_volume_change_24h": self._safe_float(
-                data, "sol_volume_change_24h", "SOL.VOLUME_24H", "24h"
+                data, "sol_volume_change_24h", "SOL.VOLUME", "24h"
             ),
             "total_market_cap": self._safe_float(data, "total_market_cap", "TOTAL_MARKET_CAP"),
             "total_market_cap_change_24h": self._safe_float(
@@ -237,5 +240,5 @@ class TerminalFeed:
             "total_market_cap_change_7d": self._safe_float(
                 data, "total_market_cap_change_7d", "TOTAL_MARKET_CAP", "7d"
             ),
-            "total_volume_24h": self._safe_float(data, "total_volume_24h", "TOTAL_VOLUME_24H"),
+            "total_volume_24h": self._safe_float(data, "total_volume_24h", "TOTAL_VOLUME"),
         }
