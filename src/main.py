@@ -189,13 +189,9 @@ async def main() -> None:
     _install_socket_event_logger(acp_client)
 
     # Log the socket.io transport in use (websocket vs polling) — critical for Railway diagnosis
-    sio = acp_client.sio
-    transport = (
-        getattr(getattr(sio, "eio", None), "transport", None)
-        or getattr(sio, "transport", None)
-        or "unknown"
-    )
-    transport_name = getattr(transport, "name", str(transport))
+    eio = getattr(acp_client.sio, "eio", None)
+    transport_fn = getattr(eio, "transport", None)
+    transport_name = transport_fn() if callable(transport_fn) else str(transport_fn or "unknown")
     logger.info("[SOCKET-TRANSPORT] %s", transport_name)
 
     logger.info("ACP client connected — agent is online")
