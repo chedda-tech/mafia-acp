@@ -159,7 +159,10 @@ class TerminalFeed:
         pct = float((fg_data.get("changes", {}) or {}).get(period, 0) or 0)
         if pct == 0:
             return 0.0
-        return round(current * pct / (100 + pct), 1)
+        denom = 100.0 + pct
+        if abs(denom) < 1e-3:  # guard against pct ≈ -100 (ZeroDivisionError)
+            return 0.0
+        return round(current * pct / denom, 1)
 
     def _parse_market_data(self, raw_data: dict | list) -> dict:
         """Parse Mafia API /api/metrics/multi-period response into cache fields.
