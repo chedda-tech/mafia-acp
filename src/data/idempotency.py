@@ -206,25 +206,21 @@ class PostgresIdempotencyStore:
         expires_at = now + timedelta(seconds=ttl_seconds)
         with self._lock, self._connect() as conn:
             with conn.cursor() as cur:
+                # Single atomic upsert: insert only if no live lock exists (expired rows are
+                # overwritten). RETURNING tells us whether a row was actually inserted (xmax=0).
                 cur.execute(
-                    "DELETE FROM mafia_acp.job_locks WHERE expires_at <= %s",
-                    (now,),
+                    """
+                    INSERT INTO mafia_acp.job_locks (job_id, owner_id, acquired_at, expires_at)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (job_id) DO UPDATE
+                        SET job_id = EXCLUDED.job_id
+                        WHERE mafia_acp.job_locks.expires_at <= EXCLUDED.acquired_at
+                    RETURNING (xmax = 0)
+                    """,
+                    (job_id, owner_id, now, expires_at),
                 )
-                cur.execute(
-                    "SELECT owner_id FROM mafia_acp.job_locks WHERE job_id = %s",
-                    (job_id,),
-                )
-                if cur.fetchone() is None:
-                    cur.execute(
-                        """
-                        INSERT INTO mafia_acp.job_locks
-                            (job_id, owner_id, acquired_at, expires_at)
-                        VALUES (%s, %s, %s, %s)
-                        """,
-                        (job_id, owner_id, now, expires_at),
-                    )
-                    return True
-                return False
+                row = cur.fetchone()
+                return bool(row and row[0])
 
     def renew_job_lock(self, job_id: int, owner_id: str, ttl_seconds: int) -> bool:
         """Renew lock expiry if currently held by owner."""

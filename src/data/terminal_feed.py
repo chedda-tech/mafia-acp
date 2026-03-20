@@ -163,9 +163,11 @@ class TerminalFeed:
         return 0.0
 
     def _parse_market_data(self, raw_data: dict | list) -> dict:
-        """Parse Terminal API response into cache fields.
+        """Parse Mafia API /api/metrics/multi-period response into cache fields.
 
-        Adapt field names here when the actual API response format is known.
+        Normalizes the multi-period metrics payload into a dict keyed by
+        'ASSET.METRIC' with 'value' and 'changes' entries. Update this mapping
+        if the Mafia API response format changes.
         """
         if not raw_data:
             return {}
@@ -201,6 +203,9 @@ class TerminalFeed:
             "btc_dominance": self._safe_float(data, "btc_dominance", "BTC.DOMINANCE"),
             "btc_dominance_change_24h": self._safe_float(
                 data, "btc_dominance_change_24h", "BTC.DOMINANCE", "24h"
+            ),
+            "btc_dominance_change_7d": self._safe_float(
+                data, "btc_dominance_change_7d", "BTC.DOMINANCE", "7d"
             ),
             "btc_volume_24h": self._safe_float(data, "btc_volume_24h", "BTC.VOLUME_24H"),
             "btc_volume_change_24h": self._safe_float(

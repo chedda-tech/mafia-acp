@@ -57,6 +57,7 @@ class MarketDataCache:
     btc_change_7d: float = 0.0
     btc_dominance: float = 0.0
     btc_dominance_change_24h: float = 0.0
+    btc_dominance_change_7d: float = 0.0
     btc_volume_24h: float = 0.0
     btc_volume_change_24h: float = 0.0
 
