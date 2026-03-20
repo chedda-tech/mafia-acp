@@ -201,30 +201,32 @@ class PostgresIdempotencyStore:
                 return bool(row and row[0])
 
     def acquire_job_lock(self, job_id: int, owner_id: str, ttl_seconds: int) -> bool:
-        """Acquire an expiring per-job lock. Returns True only when a new lock is acquired."""
+        """Acquire an expiring per-job lock.
+
+        Returns True when the lock is acquired — either as a fresh insert or by
+        overwriting an expired lock. Returns False when a live lock already exists.
+        """
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=ttl_seconds)
         with self._lock, self._connect() as conn:
             with conn.cursor() as cur:
+                # Atomic upsert: insert if no row exists; overwrite if the existing
+                # lock is expired. A live lock causes the WHERE to fail → no row → False.
                 cur.execute(
-                    "DELETE FROM mafia_acp.job_locks WHERE expires_at <= %s",
-                    (now,),
+                    """
+                    INSERT INTO mafia_acp.job_locks (job_id, owner_id, acquired_at, expires_at)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (job_id) DO UPDATE
+                        SET owner_id    = EXCLUDED.owner_id,
+                            acquired_at = EXCLUDED.acquired_at,
+                            expires_at  = EXCLUDED.expires_at
+                        WHERE mafia_acp.job_locks.expires_at <= EXCLUDED.acquired_at
+                    RETURNING true
+                    """,
+                    (job_id, owner_id, now, expires_at),
                 )
-                cur.execute(
-                    "SELECT owner_id FROM mafia_acp.job_locks WHERE job_id = %s",
-                    (job_id,),
-                )
-                if cur.fetchone() is None:
-                    cur.execute(
-                        """
-                        INSERT INTO mafia_acp.job_locks
-                            (job_id, owner_id, acquired_at, expires_at)
-                        VALUES (%s, %s, %s, %s)
-                        """,
-                        (job_id, owner_id, now, expires_at),
-                    )
-                    return True
-                return False
+                row = cur.fetchone()
+                return bool(row)
 
     def renew_job_lock(self, job_id: int, owner_id: str, ttl_seconds: int) -> bool:
         """Renew lock expiry if currently held by owner."""

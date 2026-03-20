@@ -46,17 +46,13 @@ class MarketDataCache:
     fg_change_24h: float = 0.0
     fg_change_7d: float = 0.0
     fg_change_30d: float = 0.0
-    fg_7d_low: int = 50
-    fg_7d_high: int = 50
-    fg_trend_2d: str = "flat"  # "up", "down", "flat"
-    fg_trend_3d: str = "flat"
-
     # BTC
     btc_price: float = 0.0
     btc_change_24h: float = 0.0
     btc_change_7d: float = 0.0
     btc_dominance: float = 0.0
     btc_dominance_change_24h: float = 0.0
+    btc_dominance_change_7d: float = 0.0
     btc_volume_24h: float = 0.0
     btc_volume_change_24h: float = 0.0
 

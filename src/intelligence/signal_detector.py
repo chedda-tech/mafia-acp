@@ -62,10 +62,10 @@ def map_market_regime(data: MarketDataCache) -> dict[str, str | float]:
     else:
         vol_regime = "Average trading activity"
 
-    # 4. Dominance
-    if data.btc_dominance_change_24h > 0.5:
+    # 4. Dominance (1.5% threshold — below this is intraday noise, not structural rotation)
+    if data.btc_dominance_change_24h > 1.5:
         dom_regime = "Flight to safety / BTC outperformance"
-    elif data.btc_dominance_change_24h < -0.5:
+    elif data.btc_dominance_change_24h < -1.5:
         dom_regime = "Risk-on / Altcoin rotation"
     else:
         dom_regime = "Stable dominance"
@@ -75,6 +75,8 @@ def map_market_regime(data: MarketDataCache) -> dict[str, str | float]:
         "trend_regime": trend_regime,
         "volume_regime": vol_regime,
         "dominance_regime": dom_regime,
+        "fg_trajectory": _fg_trajectory(data),
+        "altseason_signal": _altseason_signal(data),
         "btc_change_24h": short_term,
         "btc_change_7d": medium_term,
         "fg_value": fg,
@@ -114,8 +116,8 @@ def detect_signals(data: MarketDataCache) -> list[Signal]:
                 )
             )
 
-    # BTC dominance shifts (>1% change in 24h = significant)
-    if data.btc_dominance_change_24h > 0.5:
+    # BTC dominance shifts (>1.5% change in 24h = significant; below this is intraday noise)
+    if data.btc_dominance_change_24h > 1.5:
         strength = _dominance_strength(data.btc_dominance_change_24h)
         signals.append(
             Signal(
@@ -126,7 +128,7 @@ def detect_signals(data: MarketDataCache) -> list[Signal]:
             )
         )
 
-    if data.btc_dominance_change_24h < -0.5:
+    if data.btc_dominance_change_24h < -1.5:
         strength = _dominance_strength(abs(data.btc_dominance_change_24h))
         signals.append(
             Signal(
@@ -176,6 +178,57 @@ def _avg_volume_change(data: MarketDataCache) -> float:
     if not valid_changes or all(c == 0.0 for c in valid_changes):
         return 0.0
     return sum(valid_changes) / len(valid_changes)
+
+
+def _fg_trajectory(data: MarketDataCache) -> str:
+    """Combine F&G zone + momentum into a single authoritative trajectory label."""
+    fg = data.fg_value
+    c24 = data.fg_change_24h
+    c7d = data.fg_change_7d
+    c30d = data.fg_change_30d
+
+    if fg <= 24:  # Extreme Fear
+        if c24 < -3:
+            return "Extreme Fear Deepening"
+        elif c24 > 3 or c7d > 5:
+            return "Extreme Fear — Stabilizing"
+        return "Extreme Fear Persisting"
+    elif fg <= 45:  # Fear
+        if c24 < -3:
+            return "Fear Intensifying"
+        elif c7d > 3 and c30d < -7:
+            return "Fear — Recovery in Progress"
+        elif c24 > 5:
+            return "Fear Easing"
+        return "Fear Consolidating"
+    elif fg <= 54:  # Neutral
+        if c24 > 3:
+            return "Neutral — Greed Building"
+        elif c24 < -3:
+            return "Neutral — Softening"
+        return "Neutral"
+    elif fg <= 74:  # Greed
+        if c24 > 3:
+            return "Greed Building"
+        elif c24 < -3:
+            return "Greed Cooling"
+        return "Greed Persisting"
+    else:  # Extreme Greed
+        if c24 < -3:
+            return "Extreme Greed Cooling"
+        elif c24 > 3:
+            return "Extreme Greed Accelerating"
+        return "Extreme Greed Persisting"
+
+
+def _altseason_signal(data: MarketDataCache) -> str:
+    """Derive BTC vs alts rotation signal from 7d dominance change."""
+    dom7d = data.btc_dominance_change_7d
+    if dom7d > 2.0:
+        return f"BTC outperforming — dominance up {dom7d:.1f}% over 7d, alts facing headwinds"
+    elif dom7d < -2.0:
+        return f"Altcoin rotation signal — BTC dominance down {abs(dom7d):.1f}% over 7d"
+    return "No rotation signal — dominance stable over 7d"
 
 
 def _volume_strength(change: float) -> str:

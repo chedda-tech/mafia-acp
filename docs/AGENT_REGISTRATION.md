@@ -86,10 +86,6 @@
 | `volume_spike` | 24h volume up 40%+ |
 | `volume_dry_up` | 24h volume down 30%+ |
 
-### Outlook Values
-
-`bullish_short_term` · `bullish_medium_term` · `bearish_short_term` · `bearish_medium_term` · `bearish_short_term_bullish_medium_term` · `bullish_short_term_bearish_medium_term` · `neutral`
-
 ---
 
 ## Job 3: `smart_buy` _(Phase 2 — not yet live)_

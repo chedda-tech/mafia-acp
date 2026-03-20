@@ -2,7 +2,7 @@
 
 from src.data.models import MarketDataCache
 from src.intelligence.ai_narrator import _fallback_analysis
-from src.intelligence.signal_detector import detect_signals, map_market_regime
+from src.intelligence.signal_detector import detect_signals
 
 
 class TestSignalDetection:
@@ -40,13 +40,13 @@ class TestSignalDetection:
         assert "greed_exhaustion" not in signal_types
 
     def test_btc_dominance_rising(self):
-        data = MarketDataCache(btc_dominance_change_24h=1.5)
+        data = MarketDataCache(btc_dominance_change_24h=2.0)
         signals = detect_signals(data)
         signal_types = [s.signal for s in signals]
         assert "btc_dominance_rising" in signal_types
 
     def test_btc_dominance_falling(self):
-        data = MarketDataCache(btc_dominance_change_24h=-1.2)
+        data = MarketDataCache(btc_dominance_change_24h=-2.0)
         signals = detect_signals(data)
         signal_types = [s.signal for s in signals]
         assert "btc_dominance_falling" in signal_types
@@ -99,12 +99,22 @@ class TestSignalDetection:
 
 
 class TestFallbackAnalysis:
-    def test_returns_summary(self):
+    def test_returns_structured_output(self):
         data = MarketDataCache(fg_value=22, fg_classification="extreme_fear", fg_change_24h=-7)
         signals = detect_signals(data)
         result = _fallback_analysis(data, signals)
-        assert "summary" in result
+        assert "overview" in result
+        assert "analysis" in result
+        assert "insight" in result
         assert "signals" in result
         assert "regime" in result
-        assert "22" in result["summary"]
+        assert "22" in result["overview"]
+
+    def test_insight_is_contrarian_in_fear(self):
+        data = MarketDataCache(fg_value=10, fg_change_24h=-5)
+        signals = detect_signals(data)
+        result = _fallback_analysis(data, signals)
+        # Insight should be non-empty and not just repeat the numbers
+        assert len(result["insight"]) > 20
+        assert "10" not in result["insight"]  # insight shouldn't regurgitate the F&G number
 

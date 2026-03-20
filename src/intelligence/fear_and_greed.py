@@ -257,7 +257,7 @@ def _handle_transaction(job: ACPJob, memo_to_sign: ACPMemo | None, cache: DataCa
             "change_30d": data.fg_change_30d,
             "regime": regimes["sentiment_regime"],
             "timestamp": datetime.now(UTC).isoformat(),
-            "source": "alternative_me",
+            "source": "coinmarketcap",
         }
     )
 

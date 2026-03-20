@@ -219,6 +219,7 @@ def _build_report(
             "change_24h": data.btc_dominance_change_24h,
             "trend": _dominance_trend(data.btc_dominance_change_24h),
         },
+        "rotation_signal": _build_rotation_signal(data, regimes),
         "total_market_cap": {
             "value_usd": format_market_cap(data.total_market_cap),
             "change_24h": data.total_market_cap_change_24h,
@@ -259,6 +260,22 @@ def _build_report(
         report["analysis"] = None
 
     return report
+
+
+def _build_rotation_signal(data: MarketDataCache, regimes: dict) -> dict:
+    """Build the structured rotation signal from 7d BTC dominance change."""
+    dom7d = data.btc_dominance_change_7d
+    if dom7d > 2.0:
+        rot_type = "btc_dominant"
+    elif dom7d < -2.0:
+        rot_type = "altseason"
+    else:
+        rot_type = "no_rotation"
+    return {
+        "type": rot_type,
+        "label": regimes.get("altseason_signal", ""),
+        "btc_dominance_change_7d": round(dom7d, 2),
+    }
 
 
 def _dominance_trend(change_24h: float) -> str:
