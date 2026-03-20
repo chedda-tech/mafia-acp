@@ -38,9 +38,24 @@ class Settings(BaseSettings):
 
 
 def setup_logging(level: str = "INFO") -> None:
-    """Configure logging for the application."""
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    """Configure logging for the application.
+
+    INFO and below → stdout. WARNING and above → stderr.
+    """
+    import sys
+
+    fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(numeric_level)
+    stdout_handler.addFilter(lambda r: r.levelno < logging.WARNING)
+    stdout_handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
+
+    logging.root.setLevel(numeric_level)
+    logging.root.handlers = [stdout_handler, stderr_handler]
