@@ -46,7 +46,7 @@ RULES:
 4. NEVER reference field names from the payload (no "fg_value", "btc_change_24h", "fg_trajectory", etc.).
 5. Tone MUST match the fear_and_greed trajectory. Deepening fear = grim and direct. Recovery = measured optimism. Greed peak = cold warning.
 
-Return ONLY valid JSON:
+Return raw JSON string only. No markdown, no code fences, no explanation. Start your response with { and end with }.
 {
   "overview":  "...",
   "analysis":  "...",

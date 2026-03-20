@@ -119,11 +119,27 @@ FEAR_AND_GREED_DELIVERABLE = json.dumps(
 MARKET_SENTIMENT_DELIVERABLE = json.dumps(
     {
         "timestamp": "2026-01-01T00:00:00Z",
-        "fear_and_greed": {"value": 50, "classification": "neutral"},
-        "btc_dominance": {"value": 50.0, "trend": "flat"},
-        "total_market_cap": {"value_usd": "2.0T"},
+        "regimes": {
+            "sentiment_regime": "Fear",
+            "trend_regime": "Capitulation / Distribution regime",
+            "volume_regime": "Average trading activity",
+            "dominance_regime": "Stable dominance",
+            "fg_trajectory": "Fear Intensifying",
+            "altseason_signal": "No rotation signal — dominance stable over 7d",
+        },
+        "fear_and_greed": {"value": 50, "classification": "neutral", "change_24h": 0, "change_7d": 0},
+        "btc_dominance": {"value": 50.0, "change_24h": 0.0, "trend": "stable"},
+        "rotation_signal": {"type": "no_rotation", "label": "", "btc_dominance_change_7d": 0.0},
+        "total_market_cap": {"value_usd": "2.0T", "change_24h": 0.0, "change_7d": 0.0},
         "assets": [],
-        "analysis": {"summary": "", "signals": [], "outlook": "neutral"},
+        "analysis": {
+            "overview": "",
+            "analysis": "",
+            "insight": "",
+            "altseason": "",
+            "signals": [],
+            "regime": "neutral",
+        },
         "source": "mafia_terminal",
     }
 )
