@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import threading
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -29,10 +30,22 @@ class IdempotencyStore:
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._db_path, check_same_thread=False)
 
+    @contextmanager
+    def _connection(self):
+        conn = self._connect()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def _init_db(self) -> None:
         path = Path(self._db_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS processed_memos (
@@ -61,7 +74,7 @@ class IdempotencyStore:
         Returns True only for the first claimant.
         """
         now = datetime.now(UTC).isoformat()
-        with self._lock, self._connect() as conn:
+        with self._lock, self._connection() as conn:
             cur = conn.execute(
                 """
                 INSERT OR IGNORE INTO processed_memos
@@ -87,7 +100,7 @@ class IdempotencyStore:
         expires_at = (now + timedelta(seconds=ttl_seconds)).isoformat()
         now_iso = now.isoformat()
 
-        with self._lock, self._connect() as conn:
+        with self._lock, self._connection() as conn:
             conn.execute("DELETE FROM job_locks WHERE expires_at <= ?", (now_iso,))
 
             row = conn.execute(
@@ -110,7 +123,7 @@ class IdempotencyStore:
         """Renew lock expiry if currently held by owner."""
         now = datetime.now(UTC)
         expires_at = (now + timedelta(seconds=ttl_seconds)).isoformat()
-        with self._lock, self._connect() as conn:
+        with self._lock, self._connection() as conn:
             cur = conn.execute(
                 """
                 UPDATE job_locks
@@ -123,7 +136,7 @@ class IdempotencyStore:
 
     def release_job_lock(self, job_id: int, owner_id: str) -> None:
         """Release lock only if owned by owner_id."""
-        with self._lock, self._connect() as conn:
+        with self._lock, self._connection() as conn:
             conn.execute(
                 "DELETE FROM job_locks WHERE job_id = ? AND owner_id = ?",
                 (job_id, owner_id),

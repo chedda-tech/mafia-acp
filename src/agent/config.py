@@ -37,10 +37,36 @@ class Settings(BaseSettings):
     job_lock_ttl_seconds: int = 300
 
 
+class _BelowWarning(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno < logging.WARNING
+
+
 def setup_logging(level: str = "INFO") -> None:
-    """Configure logging for the application."""
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    """Configure logging for the application.
+
+    Records below WARNING go to stdout; WARNING and above go to stderr,
+    subject to the configured global log level.
+    """
+    import sys
+
+    fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(numeric_level)
+    stdout_handler.addFilter(_BelowWarning())
+    stdout_handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.WARNING)
+    stderr_handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
+
+    root = logging.getLogger()
+    for handler in root.handlers[:]:
+        handler.close()
+    root.handlers.clear()
+    root.setLevel(numeric_level)
+    root.addHandler(stdout_handler)
+    root.addHandler(stderr_handler)
