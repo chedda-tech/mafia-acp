@@ -1,8 +1,10 @@
 """Job offering definitions for the MAFIA ACP agent.
 
-These define the 4 services MAFIA provides via ACP:
+Phase 1 (live):
 1. fear_and_greed — Simple F&G data ($0.10)
 2. market_sentiment — Full market analysis ($0.25)
+
+Phase 2 (planned — see OFFERINGS_PHASE2):
 3. smart_buy — Conditional buy execution ($0.50)
 4. take_profit — Conditional sell execution ($0.50)
 """
@@ -158,6 +160,12 @@ OFFERINGS = {
         "requirement": MARKET_SENTIMENT_REQUIREMENTS,
         "deliverable": MARKET_SENTIMENT_DELIVERABLE,
     },
+}
+
+# Phase 2 offerings — not yet live.
+# Pending: escrow fund handling and nested ACP swap agent orchestration.
+# Schemas preserved here for reference during implementation.
+OFFERINGS_PHASE2 = {
     "smart_buy": {
         "name": "smart_buy",
         "description": (

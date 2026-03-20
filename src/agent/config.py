@@ -16,8 +16,11 @@ class Settings(BaseSettings):
     entity_id: int
     acp_network: str = "testnet"
 
-    # Terminal API
-    terminal_api_url: str = ""
+    # Database (Supabase PostgreSQL — required for Railway, optional for local dev)
+    database_url: str = ""
+
+    # Mafia API
+    mafia_api_base_url: str = ""
 
     # LLM (OpenAI-compatible — works with OpenRouter, Together, Groq, etc.)
     llm_base_url: str = "https://api.openai.com/v1"

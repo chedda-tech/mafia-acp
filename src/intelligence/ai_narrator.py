@@ -14,22 +14,27 @@ from typing import Any
 
 import openai
 
-from src.data.models import MarketDataCache, MarketOutlook, Signal
+from src.data.models import MarketDataCache, Signal
+from src.intelligence.signal_detector import map_market_regime
 
 logger = logging.getLogger(__name__)
 
 NARRATOR_PROMPT = """You are the Consigliere — MAFIA AI's strategic advisor.
-Analyze this market data and provide a brief, trader-focused summary.
-Speak with authority. Cite specific numbers. Never hype.
+Analyze the provided market regimes and provide a brief, trader-focused summary.
+Speak with authority. Cite specific numbers in the regimes.
 
-Rules:
-- 2-3 sentences max for the summary
-- Reference specific F&G values, price changes, and dominance shifts
-- Use trader-native language (risk-off rotation, capitulation, exhaustion, etc.)
-- Be direct about what the data suggests, not what you think will happen
+CRITICAL RULES:
+1. NEVER GIVE "BUY", "SELL", OR EXPLICIT FINANCIAL ADVICE. You are a commentator, not a financial advisor.
+2. Rely EXCLUSIVELY on the deterministic regimes provided in the payload (Trend, Sentiment, Dominance, Volume). Form your narrative explicitly around these mappings.
+3. 2-3 sentences max for the summary.
+4. Reference specific F&G values and price changes mapped in the regimes.
+5. Use trader-native language (e.g. risk-off rotation, capitulation, exhaustion, etc.) strictly matching the rules given.
 
-Return ONLY valid JSON:
-{"summary": "2-3 sentences", "outlook": "bullish_short_term | bearish_short_term | neutral | bullish_short_term_bearish_medium_term | bearish_short_term_bullish_medium_term"}"""
+Return ONLY valid JSON in this exact structure:
+{
+  "summary": "2-3 sentences describing the current deterministic regimes",
+  "regime": "The string mapped as 'trend_regime' inside the prompt payload"
+}"""
 
 
 async def generate_narrative(
@@ -48,19 +53,14 @@ async def generate_narrative(
         logger.warning("No LLM API key — returning data-only analysis")
         return _fallback_analysis(data, signals)
 
+    regimes = map_market_regime(data)
+
     market_context = {
-        "fear_and_greed": data.fg_value,
-        "fg_classification": data.fg_classification,
-        "fg_change_24h": data.fg_change_24h,
-        "fg_change_7d": data.fg_change_7d,
+        "regimes": regimes,
         "btc_price": data.btc_price,
-        "btc_change_24h": data.btc_change_24h,
         "btc_dominance": data.btc_dominance,
-        "btc_dominance_change_24h": data.btc_dominance_change_24h,
         "eth_price": data.eth_price,
-        "eth_change_24h": data.eth_change_24h,
         "sol_price": data.sol_price,
-        "sol_change_24h": data.sol_change_24h,
         "signals": [s.to_dict() for s in signals],
     }
 
@@ -80,16 +80,11 @@ async def generate_narrative(
         )
 
         result = json.loads(response.choices[0].message.content)
-        # Validate outlook is a valid enum value
-        outlook = result.get("outlook", "neutral")
-        valid_outlooks = [o.value for o in MarketOutlook]
-        if outlook not in valid_outlooks:
-            outlook = "neutral"
 
         return {
             "summary": result.get("summary", ""),
             "signals": [s.to_dict() for s in signals],
-            "outlook": outlook,
+            "regime": regimes["trend_regime"],
         }
 
     except Exception as e:
@@ -99,7 +94,7 @@ async def generate_narrative(
 
 def _fallback_analysis(data: MarketDataCache, signals: list[Signal]) -> dict[str, Any]:
     """Generate a basic analysis without AI when the LLM is unavailable."""
-    outlook = _determine_outlook(data, signals)
+    regimes = map_market_regime(data)
 
     parts = [f"F&G at {data.fg_value} ({data.fg_classification})."]
 
@@ -116,20 +111,5 @@ def _fallback_analysis(data: MarketDataCache, signals: list[Signal]) -> dict[str
     return {
         "summary": " ".join(parts),
         "signals": [s.to_dict() for s in signals],
-        "outlook": outlook,
+        "regime": regimes["trend_regime"],
     }
-
-
-def _determine_outlook(data: MarketDataCache, signals: list[Signal]) -> str:
-    """Determine market outlook from data and signals."""
-    signal_types = {s.signal for s in signals}
-
-    if "fear_capitulation" in signal_types:
-        return MarketOutlook.BEARISH_SHORT_BULLISH_MEDIUM.value
-    if "greed_exhaustion" in signal_types:
-        return MarketOutlook.BULLISH_SHORT_BEARISH_MEDIUM.value
-    if data.fg_value < 25:
-        return MarketOutlook.BEARISH_SHORT_TERM.value
-    if data.fg_value > 75:
-        return MarketOutlook.BULLISH_SHORT_TERM.value
-    return MarketOutlook.NEUTRAL.value

@@ -6,12 +6,12 @@ MAFIA acts as both an ACP **Provider** (selling intelligence jobs) and **Client*
 
 ## Jobs
 
-| Job | Price | Type | Description |
-|-----|-------|------|-------------|
-| `fear_and_greed` | $0.10 | Service | Current F&G Index with trend context |
-| `market_sentiment` | $0.25 | Service | Full market report with AI analysis |
-| `smart_buy` | $0.50 | Fund-transfer | Conditional buy when conditions align |
-| `take_profit` | $0.50 | Fund-transfer | Conditional sell on exit signals |
+| Job | Price | Type | Status | Description |
+|-----|-------|------|--------|-------------|
+| `fear_and_greed` | $0.10 | Service | Live | Current F&G Index with trend context |
+| `market_sentiment` | $0.25 | Service | Live | Full market report with AI analysis |
+| `smart_buy` | $0.50 | Fund-transfer | Phase 2 | Conditional buy when conditions align |
+| `take_profit` | $0.50 | Fund-transfer | Phase 2 | Conditional sell on exit signals |
 
 ## Setup
 
@@ -32,7 +32,7 @@ cp .env.example .env
 WHITELISTED_WALLET_PRIVATE_KEY=0x...   # Dev wallet (0x prefix required)
 AGENT_WALLET_ADDRESS=0x...             # Smart contract wallet from ACP portal
 ENTITY_ID=                             # Integer from agent registration
-TERMINAL_API_URL=https://...           # MAFIA Terminal API (serves F&G + market data)
+MAFIA_API_BASE_URL=https://...           # MAFIA Backend API for metric snapshots
 LLM_BASE_URL=https://openrouter.ai/api/v1  # Any OpenAI-compatible provider
 LLM_API_KEY=sk-or-...                 # Provider API key
 LLM_MODEL=deepseek/deepseek-chat      # Model identifier
@@ -61,7 +61,7 @@ See [docs/MAFIA_ACP_AGENT_ARCHITECTURE.md](docs/MAFIA_ACP_AGENT_ARCHITECTURE.md)
 src/
 ├── agent/          # ACP client, job routing, config
 ├── intelligence/   # F&G, market analysis, signal detection, AI narrator
-├── monitor/        # Condition evaluation loop (smart_buy/take_profit)
-├── execution/      # Swap agent orchestration via nested ACP jobs
+├── monitor/        # Condition evaluation loop (Phase 2 — smart_buy/take_profit)
+├── execution/      # Swap agent orchestration via nested ACP jobs (Phase 2)
 └── data/           # Terminal API feed, in-memory cache, models
 ```
