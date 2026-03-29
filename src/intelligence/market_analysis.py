@@ -48,6 +48,25 @@ def handle_market_sentiment(
     if phase == ACPJobPhase.REQUEST:
         if memo_to_sign is None:
             return
+
+        # Validate requirements before accepting
+        reqs = _parse_requirements(job)
+        validation_error = _validate_requirements(reqs)
+        if validation_error:
+            logger.warning(
+                "Rejecting market_sentiment job %d: %s", job.id, validation_error
+            )
+            try:
+                job.reject(reason=validation_error)
+            except Exception as exc:
+                logger.error(
+                    "Failed to reject market_sentiment job %d: %s",
+                    job.id,
+                    exc,
+                    exc_info=True,
+                )
+            return
+
         logger.info("Accepting market_sentiment job %d", job.id)
         job.accept(reason="Market intelligence report ready for generation")
 
@@ -174,7 +193,26 @@ def _handle_transaction(job: ACPJob, cache: DataCache, acp_client: VirtualsACP) 
 
 
 def _parse_requirements(job: ACPJob) -> dict:
-    """Extract user requirements from job context."""
+    """Extract user requirements from job.
+
+    The SDK exposes the buyer's service_requirement via ``job.requirement``
+    (parsed from the NEGOTIATION memo).  Fall back to ``job.context`` for
+    legacy/custom payloads.
+    """
+    # Prefer the SDK-parsed requirement property
+    req = getattr(job, "requirement", None)
+    if req is not None:
+        if isinstance(req, dict):
+            return req
+        if isinstance(req, str):
+            try:
+                parsed = json.loads(req)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+    # Fallback: job.context
     context = job.context
     if not context:
         return {}
@@ -184,15 +222,46 @@ def _parse_requirements(job: ACPJob) -> dict:
         except json.JSONDecodeError:
             return {}
     if isinstance(context, dict):
-        # Requirements may be nested
-        req = context.get("requirement", context)
-        if isinstance(req, str):
+        nested = context.get("requirement", context)
+        if isinstance(nested, str):
             try:
-                return json.loads(req)
+                return json.loads(nested)
             except json.JSONDecodeError:
                 return {}
-        return req if isinstance(req, dict) else {}
+        return nested if isinstance(nested, dict) else {}
     return {}
+
+
+def _validate_requirements(reqs: dict) -> str | None:
+    """Validate market_sentiment requirements against the offering schema.
+
+    Returns an error message string if invalid, or None if valid.
+    """
+    if not reqs:
+        return None  # empty requirements are fine — all fields are optional
+
+    focus_assets = reqs.get("focus_assets")
+    if focus_assets is not None and not isinstance(focus_assets, list):
+        return (
+            f"Invalid 'focus_assets': expected an array of strings, "
+            f"got {type(focus_assets).__name__} ({repr(focus_assets)[:100]})"
+        )
+    if isinstance(focus_assets, list):
+        for item in focus_assets:
+            if not isinstance(item, str):
+                return (
+                    f"Invalid 'focus_assets' item: expected string, "
+                    f"got {type(item).__name__} ({repr(item)[:100]})"
+                )
+
+    include_analysis = reqs.get("include_analysis")
+    if include_analysis is not None and not isinstance(include_analysis, bool):
+        return (
+            f"Invalid 'include_analysis': expected a boolean (true/false), "
+            f"got {type(include_analysis).__name__} ({repr(include_analysis)[:100]})"
+        )
+
+    return None
 
 
 def _build_report(
@@ -233,7 +302,7 @@ def _build_report(
         "source": "mafia_terminal",
     }
 
-    # Signal detection and AI analysis
+    # Signal detection and AI analysis — only when explicitly requested
     if include_analysis:
         signals = detect_signals(data)
         # Run async narrative in a sync context
@@ -256,8 +325,7 @@ def _build_report(
             analysis = "Analysis temporarily unavailable."
 
         report["analysis"] = analysis
-    else:
-        report["analysis"] = None
+    # When include_analysis is False, omit the key entirely
 
     return report
 
