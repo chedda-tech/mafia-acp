@@ -56,7 +56,15 @@ def handle_market_sentiment(
             logger.warning(
                 "Rejecting market_sentiment job %d: %s", job.id, validation_error
             )
-            job.reject(reason=validation_error)
+            try:
+                job.reject(reason=validation_error)
+            except Exception as exc:
+                logger.error(
+                    "Failed to reject market_sentiment job %d: %s",
+                    job.id,
+                    exc,
+                    exc_info=True,
+                )
             return
 
         logger.info("Accepting market_sentiment job %d", job.id)
@@ -198,7 +206,9 @@ def _parse_requirements(job: ACPJob) -> dict:
             return req
         if isinstance(req, str):
             try:
-                return json.loads(req)
+                parsed = json.loads(req)
+                if isinstance(parsed, dict):
+                    return parsed
             except json.JSONDecodeError:
                 pass
 
@@ -234,21 +244,21 @@ def _validate_requirements(reqs: dict) -> str | None:
     if focus_assets is not None and not isinstance(focus_assets, list):
         return (
             f"Invalid 'focus_assets': expected an array of strings, "
-            f"got {type(focus_assets).__name__} ({focus_assets!r})"
+            f"got {type(focus_assets).__name__} ({repr(focus_assets)[:100]})"
         )
     if isinstance(focus_assets, list):
         for item in focus_assets:
             if not isinstance(item, str):
                 return (
                     f"Invalid 'focus_assets' item: expected string, "
-                    f"got {type(item).__name__} ({item!r})"
+                    f"got {type(item).__name__} ({repr(item)[:100]})"
                 )
 
     include_analysis = reqs.get("include_analysis")
     if include_analysis is not None and not isinstance(include_analysis, bool):
         return (
             f"Invalid 'include_analysis': expected a boolean (true/false), "
-            f"got {type(include_analysis).__name__} ({include_analysis!r})"
+            f"got {type(include_analysis).__name__} ({repr(include_analysis)[:100]})"
         )
 
     return None

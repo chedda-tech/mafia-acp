@@ -7,7 +7,7 @@ and _build_report (without LLM calls — include_analysis=False).
 import json
 
 import pytest
-from virtuals_acp.models import ACPJobPhase
+from virtuals_acp.models import ACPJobPhase, ACPMemoStatus
 
 from src.data.cache import DataCache
 from src.data.models import MarketDataCache
@@ -328,7 +328,7 @@ class TestParseRequirementsFromJobRequirement:
 
 
 class _DummyMemo:
-    def __init__(self, memo_id: int = 1, status: str = "PENDING"):
+    def __init__(self, memo_id: int = 1, status: ACPMemoStatus = ACPMemoStatus.PENDING):
         self.id = memo_id
         self.status = status
         self.next_phase = ACPJobPhase.NEGOTIATION
@@ -343,7 +343,7 @@ class _DummyMemo:
 class TestRequestPhaseValidation:
     def test_rejects_focus_assets_as_string(self):
         memo = _DummyMemo()
-        memo.status = "PENDING"
+        # status defaults to ACPMemoStatus.PENDING via _DummyMemo
         job = _DummyJob(
             job_id=500,
             phase=ACPJobPhase.REQUEST,
@@ -355,7 +355,7 @@ class TestRequestPhaseValidation:
 
     def test_rejects_include_analysis_as_string(self):
         memo = _DummyMemo()
-        memo.status = "PENDING"
+        # status defaults to ACPMemoStatus.PENDING via _DummyMemo
         job = _DummyJob(
             job_id=501,
             phase=ACPJobPhase.REQUEST,
@@ -367,7 +367,7 @@ class TestRequestPhaseValidation:
 
     def test_accepts_valid_requirements(self):
         memo = _DummyMemo()
-        memo.status = "PENDING"
+        # status defaults to ACPMemoStatus.PENDING via _DummyMemo
         job = _DummyJob(
             job_id=502,
             phase=ACPJobPhase.REQUEST,
@@ -379,7 +379,7 @@ class TestRequestPhaseValidation:
 
     def test_accepts_empty_requirements(self):
         memo = _DummyMemo()
-        memo.status = "PENDING"
+        # status defaults to ACPMemoStatus.PENDING via _DummyMemo
         job = _DummyJob(job_id=503, phase=ACPJobPhase.REQUEST, requirement=None)
         handle_market_sentiment(job, memo, DataCache(), object())
         assert job.accepted is True
